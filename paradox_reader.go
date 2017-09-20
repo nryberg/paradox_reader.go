@@ -24,6 +24,13 @@ type databaseHeader struct {
 	keyFieldsCount    uint8
 }
 
+// blockHeader contains the block record information
+type blockHeader struct {
+	nextBlockNumber  uint16
+	prevBlockNumber  uint16
+	offsetLastRecord uint16
+}
+
 type fieldDescription struct {
 	ordinal   int
 	fieldType uint8
@@ -73,7 +80,7 @@ func readShortLittleEnd(fileHandle *os.File) (uint16, error) {
 	return result, err
 }
 
-func setupHeaderData(inFile *os.File) (databaseHeader, error) {
+func setupDatabaseHeader(inFile *os.File) (databaseHeader, error) {
 	var err error
 	var header databaseHeader
 
@@ -117,6 +124,22 @@ func setupHeaderData(inFile *os.File) (databaseHeader, error) {
 	return header, err
 }
 
+func fetchBlockHeader(inFile *os.File) (blockHeader, error) {
+	var err error
+	var header blockHeader
+
+	header.nextBlockNumber, err = readShortLittleEnd(inFile)
+	check(err)
+
+	header.prevBlockNumber, err = readShortLittleEnd(inFile)
+	check(err)
+
+	header.offsetLastRecord, err = readShortLittleEnd(inFile)
+	check(err)
+
+	return header, err
+
+}
 func pullFieldDescs(inFile *os.File, header databaseHeader) error {
 	// Go to 0x78 to start file lengths
 
@@ -175,6 +198,23 @@ func pullFieldDescs(inFile *os.File, header databaseHeader) error {
 	return err
 }
 
+func printDatabaseHeaderInfo(header databaseHeader) {
+
+	log.Println("Read and report")
+	log.Printf("Total Blocks %d", header.blocksTotalCount)
+	log.Printf("lastBlock in Use %d", header.lastBlockInUse)
+	log.Printf("Fields in Use %d", header.fieldCount)
+	log.Printf("Datablock Size Code %d", header.dataBlockSizeCode)
+
+}
+
+func printBlockHeaderInfo(header blockHeader) {
+	log.Println("Next Block: ", header.nextBlockNumber)
+	log.Println("Prev Block: ", header.prevBlockNumber)
+	log.Println("Offset last Record: ", header.offsetLastRecord)
+
+}
+
 func main() {
 	log.Println("Opening File")
 
@@ -184,40 +224,29 @@ func main() {
 	defer inFile.Close()
 
 	// Go get the database header
-	header, err := setupHeaderData(inFile)
+	dbDatabaseHead, err := setupDatabaseHeader(inFile)
 	check(err)
 
 	// Pull the Field Descriptions
 	fields = make(map[byte]fieldDescription)
-	err = pullFieldDescs(inFile, header)
+	err = pullFieldDescs(inFile, dbDatabaseHead)
 	check(err)
 
-	log.Println("Read and report")
-	log.Printf("Total Blocks %d", header.blocksTotalCount)
-	log.Printf("lastBlock in Use %d", header.lastBlockInUse)
-	log.Printf("Fields in Use %d", header.fieldCount)
-	log.Printf("Datablock Size Code %d", header.dataBlockSizeCode)
+	printDatabaseHeaderInfo(dbDatabaseHead)
 
 	var currentOffset int64
 
-	currentOffset = int64(header.headerBlockSize)
+	currentOffset = int64(dbDatabaseHead.headerBlockSize)
 	_, err = inFile.Seek(currentOffset, 0)
 	check(err)
 
-	nextBlockNumber, err := readShortLittleEnd(inFile)
-	check(err)
-
-	prevBlockNumber, err := readShortLittleEnd(inFile)
-	check(err)
-
-	offsetLastRecord, err := readShortLittleEnd(inFile)
-	check(err)
-
-	log.Println("Next Block: ", nextBlockNumber)
-	log.Println("Prev Block: ", prevBlockNumber)
-	log.Println("Offset last Record: ", offsetLastRecord)
-
 	//var strRead string
+
+	var blockHead blockHeader
+	blockHead, err = fetchBlockHeader(inFile)
+	check(err)
+
+	printBlockHeaderInfo(blockHead)
 
 	currentOffset, err = inFile.Seek(0, 1)
 	var blockOffset int64
@@ -227,10 +256,10 @@ func main() {
 	var fieldIndex byte
 
 	log.Printf("current offset : %d\n", currentOffset)
-	log.Printf("offset last record : %d\n", offsetLastRecord)
+	log.Printf("offset last record : %d\n", blockHead.offsetLastRecord)
 
-	for nextBlockNumber > 0 {
-		for currentOffset <= (blockOffset + int64(offsetLastRecord)) {
+	for blockHead.nextBlockNumber > 0 {
+		for currentOffset <= (blockOffset + int64(blockHead.offsetLastRecord)) {
 			for fieldIndex < byte(len(fields)) {
 				field := fields[fieldIndex]
 				input := make([]byte, field.length)
@@ -247,14 +276,14 @@ func main() {
 
 		}
 
-		log.Printf("Next block Number Test %d\n", nextBlockNumber)
-		log.Printf("Header block Size: %d", header.headerBlockSize)
+		log.Printf("Next block Number Test %d\n", blockHead.nextBlockNumber)
+		log.Printf("Header block Size: %d", dbDatabaseHead.headerBlockSize)
 		var totalBlockSize int64
-		totalBlockSize = int64(header.dataBlockSizeCode) * 1024
+		totalBlockSize = int64(dbDatabaseHead.dataBlockSizeCode) * 1024
 
 		log.Printf("total block size: %d", totalBlockSize)
 
-		currentOffset = int64(header.headerBlockSize) + (int64(nextBlockNumber-1) * int64(totalBlockSize))
+		currentOffset = int64(dbDatabaseHead.headerBlockSize) + (int64(blockHead.nextBlockNumber-1) * int64(totalBlockSize))
 		blockOffset = currentOffset
 
 		_, err = inFile.Seek(currentOffset, 0)
@@ -262,21 +291,14 @@ func main() {
 
 		log.Printf("Current Offset:  %x \n ", currentOffset)
 
-		nextBlockNumber, err = readShortLittleEnd(inFile)
+		blockHead, err = fetchBlockHeader(inFile)
 		check(err)
 
-		prevBlockNumber, err = readShortLittleEnd(inFile)
-		check(err)
-
-		offsetLastRecord, err = readShortLittleEnd(inFile)
-		check(err)
-		log.Println("Next Block: ", nextBlockNumber)
-		log.Println("Prev Block: ", prevBlockNumber)
-		log.Println("Offset last Record: ", offsetLastRecord)
-		check(err)
+		printBlockHeaderInfo(blockHead)
 	}
 
-	q.Q(header)
+	q.Q(dbDatabaseHead)
+	q.Q(blockHead)
 	q.Q(fields)
 
 }
