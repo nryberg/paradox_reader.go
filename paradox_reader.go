@@ -215,6 +215,31 @@ func printBlockHeaderInfo(header blockHeader) {
 
 }
 
+func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
+	var fieldIndex byte
+	var currentOffset int64
+	var err error
+
+	for currentOffset <= maxOffset {
+		for fieldIndex < byte(len(fields)) {
+			field := fields[fieldIndex]
+			input := make([]byte, field.length)
+			_, err = inFile.Read(input)
+			check(err)
+
+			log.Printf("%d %s : %s", fieldIndex, field.name, input)
+
+			fieldIndex++
+		}
+		fieldIndex = 0
+		currentOffset, err = inFile.Seek(0, 1)
+		check(err)
+
+	}
+	return currentOffset, err
+
+}
+
 func main() {
 	log.Println("Opening File")
 
@@ -253,28 +278,15 @@ func main() {
 	blockOffset = currentOffset
 
 	check(err)
-	var fieldIndex byte
 
 	log.Printf("current offset : %d\n", currentOffset)
 	log.Printf("offset last record : %d\n", blockHead.offsetLastRecord)
 
 	for blockHead.nextBlockNumber > 0 {
-		for currentOffset <= (blockOffset + int64(blockHead.offsetLastRecord)) {
-			for fieldIndex < byte(len(fields)) {
-				field := fields[fieldIndex]
-				input := make([]byte, field.length)
-				_, err = inFile.Read(input)
-				check(err)
-
-				log.Printf("%d %s : %s", fieldIndex, field.name, input)
-
-				fieldIndex++
-			}
-			fieldIndex = 0
-			currentOffset, err = inFile.Seek(0, 1)
-			check(err)
-
-		}
+		maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
+		currentOffset, err = fetchBlockRecords(maxOffset, inFile)
+		log.Println(currentOffset)
+		check(err)
 
 		log.Printf("Next block Number Test %d\n", blockHead.nextBlockNumber)
 		log.Printf("Header block Size: %d", dbDatabaseHead.headerBlockSize)
