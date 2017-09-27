@@ -219,6 +219,9 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
 	var fieldIndex byte
 	var currentOffset int64
 	var err error
+	var recCount int64
+
+	recCount = 0
 
 	for currentOffset <= maxOffset {
 		for fieldIndex < byte(len(fields)) {
@@ -227,15 +230,19 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
 			_, err = inFile.Read(input)
 			check(err)
 
-			log.Printf("%d %s : %s", fieldIndex, field.name, input)
+			// log.Printf("%d %s : %s", fieldIndex, field.name, input)
 
 			fieldIndex++
 		}
+		recCount++
+
 		fieldIndex = 0
 		currentOffset, err = inFile.Seek(0, 1)
 		check(err)
 
 	}
+
+	log.Printf("Record Count : %d", recCount)
 	return currentOffset, err
 
 }
@@ -257,7 +264,7 @@ func main() {
 	err = pullFieldDescs(inFile, dbDatabaseHead)
 	check(err)
 
-	printDatabaseHeaderInfo(dbDatabaseHead)
+	//printDatabaseHeaderInfo(dbDatabaseHead)
 
 	var currentOffset int64
 
@@ -271,7 +278,7 @@ func main() {
 	blockHead, err = fetchBlockHeader(inFile)
 	check(err)
 
-	printBlockHeaderInfo(blockHead)
+	//printBlockHeaderInfo(blockHead)
 
 	currentOffset, err = inFile.Seek(0, 1)
 	var blockOffset int64
@@ -282,10 +289,11 @@ func main() {
 	log.Printf("current offset : %d\n", currentOffset)
 	log.Printf("offset last record : %d\n", blockHead.offsetLastRecord)
 
-	for blockHead.nextBlockNumber > 0 {
+	//	for blockHead.nextBlockNumber > 0 {
+	for {
 		maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
 		currentOffset, err = fetchBlockRecords(maxOffset, inFile)
-		log.Println(currentOffset)
+		log.Printf("Current Offset %x\n", currentOffset)
 		check(err)
 
 		log.Printf("Next block Number Test %d\n", blockHead.nextBlockNumber)
@@ -307,6 +315,14 @@ func main() {
 		check(err)
 
 		printBlockHeaderInfo(blockHead)
+
+		if blockHead.nextBlockNumber == 0 {
+			maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
+			_, err = fetchBlockRecords(maxOffset, inFile)
+			check(err)
+
+			break
+		}
 	}
 
 	q.Q(dbDatabaseHead)
