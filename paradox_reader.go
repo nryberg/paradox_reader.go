@@ -3,10 +3,9 @@ package main
 import (
 	"encoding/binary"
 	"flag"
+	"io/ioutil"
 	"log"
 	"os"
-
-	"github.com/y0ssar1an/q"
 )
 
 //const sampleFileName = "/Users/Nick/Dropbox/Develop/Upwork/Paradox/Related/Samples/AREA-PDX/AREACODE.DB"
@@ -201,7 +200,7 @@ func pullFieldDescs(inFile *os.File, header databaseHeader) error {
 
 func printDatabaseHeaderInfo(header databaseHeader) {
 
-	log.Println("Read and report")
+	log.Println("-- Database Header --")
 	log.Printf("Total Blocks %d", header.blocksTotalCount)
 	log.Printf("lastBlock in Use %d", header.lastBlockInUse)
 	log.Printf("Fields in Use %d", header.fieldCount)
@@ -243,20 +242,33 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
 
 	}
 
-	log.Printf("Record Count : %d", recCount)
 	return currentOffset, err
 
 }
 
+func sendFieldNamesToFile(fields map[byte]fieldDescription, outputFileNamePtf string) error {
+	var outString string
+	numFields := len(fields)
+
+	for i := 0; i < numFields; i++ {
+		field := fields[byte(i)]
+		outString = outString + field.name + ","
+	}
+	err := ioutil.WriteFile(outputFileNamePtf, []byte(outString[0:len(outString)-1]), 0644)
+	check(err)
+
+	return err
+}
+
 func main() {
-	fileNamePtf := flag.String("sampleFileName", "", "The file name for processing")
+	inputFileNamePtf := flag.String("i", "", "The input file name for processing")
+	outputFileNamePtf := flag.String("o", "./output.csv", "The output file name to push the data to")
 
 	flag.Parse()
 
-	log.Println(*fileNamePtf)
-	log.Println("Opening File")
+	log.Printf("Opening File : %s", *inputFileNamePtf)
 
-	inFile, err := os.Open(*fileNamePtf)
+	inFile, err := os.Open(*inputFileNamePtf)
 	check(err)
 
 	defer inFile.Close()
@@ -270,7 +282,10 @@ func main() {
 	err = pullFieldDescs(inFile, dbDatabaseHead)
 	check(err)
 
-	//printDatabaseHeaderInfo(dbDatabaseHead)
+	printDatabaseHeaderInfo(dbDatabaseHead)
+
+	err = sendFieldNamesToFile(fields, *outputFileNamePtf)
+	check(err)
 
 	var currentOffset int64
 
@@ -292,22 +307,13 @@ func main() {
 
 	check(err)
 
-	log.Printf("current offset : %d\n", currentOffset)
-	log.Printf("offset last record : %d\n", blockHead.offsetLastRecord)
-
-	//	for blockHead.nextBlockNumber > 0 {
 	for {
 		maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
-		currentOffset, err = fetchBlockRecords(maxOffset, inFile)
-		log.Printf("Current Offset %x\n", currentOffset)
+		_, err = fetchBlockRecords(maxOffset, inFile)
 		check(err)
 
-		log.Printf("Next block Number Test %d\n", blockHead.nextBlockNumber)
-		log.Printf("Header block Size: %d", dbDatabaseHead.headerBlockSize)
 		var totalBlockSize int64
 		totalBlockSize = int64(dbDatabaseHead.dataBlockSizeCode) * 1024
-
-		log.Printf("total block size: %d", totalBlockSize)
 
 		currentOffset = int64(dbDatabaseHead.headerBlockSize) + (int64(blockHead.nextBlockNumber-1) * int64(totalBlockSize))
 		blockOffset = currentOffset
@@ -315,12 +321,8 @@ func main() {
 		_, err = inFile.Seek(currentOffset, 0)
 		check(err)
 
-		log.Printf("Current Offset:  %x \n ", currentOffset)
-
 		blockHead, err = fetchBlockHeader(inFile)
 		check(err)
-
-		printBlockHeaderInfo(blockHead)
 
 		if blockHead.nextBlockNumber == 0 {
 			maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
@@ -330,9 +332,4 @@ func main() {
 			break
 		}
 	}
-
-	q.Q(dbDatabaseHead)
-	q.Q(blockHead)
-	q.Q(fields)
-
 }
