@@ -2,13 +2,14 @@ package main
 
 import (
 	"encoding/binary"
+	"flag"
 	"log"
 	"os"
 
 	"github.com/y0ssar1an/q"
 )
 
-const sampleFileName = "/Users/Nick/Dropbox/Develop/Upwork/Paradox/Related/Samples/AREA-PDX/AREACODE.DB"
+//const sampleFileName = "/Users/Nick/Dropbox/Develop/Upwork/Paradox/Related/Samples/AREA-PDX/AREACODE.DB"
 
 // databaseHeader give the initial layout to the data
 type databaseHeader struct {
@@ -248,9 +249,14 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
 }
 
 func main() {
+	fileNamePtf := flag.String("sampleFileName", "", "The file name for processing")
+
+	flag.Parse()
+
+	log.Println(*fileNamePtf)
 	log.Println("Opening File")
 
-	inFile, err := os.Open(sampleFileName)
+	inFile, err := os.Open(*fileNamePtf)
 	check(err)
 
 	defer inFile.Close()
