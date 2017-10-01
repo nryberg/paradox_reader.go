@@ -6,7 +6,7 @@ This is a very simple tool used to convert legacy [Paradox](https://en.wikipedia
 
 Currently unloads the file data from a pdx file.  The project is still in heavy alpha stage - in no case should you be using this in production.
 
-It currently exports the raw data as a "output.csv" CSV file by default - next step is to deal with things like number fields.
+It currently exports the raw data as a "output.csv" CSV file by default - next step is to deal with things like number fields.  You can change the output using the -o flag and pick a new destination. 
 
 ## Tasks
 
