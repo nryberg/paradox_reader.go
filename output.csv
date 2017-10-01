@@ -36,7 +36,7 @@ Area Code,Country,Full State,State
 319,United States,Iowa,IA
 401,United States,Rhode Island,RI
 402,United States,Nebraska,NE
-403,Canada,Alberta,Yukon,NWTerr,AB
+403,Canada,"Alberta,Yukon,NWTerr",AB
 404,United States,Georgia,GA
 405,United States,Oklahoma,OK
 406,United States,Montana,MT
@@ -93,7 +93,7 @@ Area Code,Country,Full State,State
 705,Canada,Ontario,ON
 707,United States,California,CA
 708,United States,Illinois,IL
-709,Canada,Newfoundland,Labrador,NF
+709,Canada,"Newfoundland,Labrador",NF
 712,United States,Iowa,IA
 713,United States,Texas,TX
 714,United States,California,CA
@@ -109,7 +109,7 @@ Area Code,Country,Full State,State
 806,United States,Texas,TX
 807,Canada,Ontario,ON
 808,United States,Hawaii,HI
-809,United States,Puerto Rico, Antilles,PR
+809,United States,"Puerto Rico, Antilles",PR
 812,United States,Indiana,IN
 813,United States,Florida,FL
 814,United States,Pennsylvania,PA
@@ -119,7 +119,7 @@ Area Code,Country,Full State,State
 818,United States,California,CA
 819,Canada,Quebec,PQ
 901,United States,Tennessee,TN
-902,Canada,Nova Scotia, PEI,NS
+902,Canada,"Nova Scotia, PEI",NS
 903,United States,Texas,TX
 904,United States,Florida,FL
 906,United States,Michigan,MI

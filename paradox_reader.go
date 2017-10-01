@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 )
 
 //const sampleFileName = "/Users/Nick/Dropbox/Develop/Upwork/Paradox/Related/Samples/AREA-PDX/AREACODE.DB"
@@ -225,9 +227,8 @@ func writeDataToFile(record string, outFileName string) error {
 	check(err)
 
 	defer outFile.Close()
-	if _, err = outFile.WriteString(record); err != nil {
-		panic(err)
-	}
+	_, err = outFile.WriteString(record)
+	check(err)
 
 	return err
 }
@@ -241,14 +242,25 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File, outFileName string) (in
 
 	recCount = 0
 
+	// TODO:  The last record in each block is getting dropped
+	// 				NEED TO FIX THIS FIRST
+
 	for currentOffset <= maxOffset {
 		for fieldIndex < byte(len(fields)) {
 			field := fields[fieldIndex]
 			input := make([]byte, field.length)
 			_, err = inFile.Read(input)
 			check(err)
-			input = bytes.Trim(input, "\x00")     // trim nulls
-			record = record + string(input) + "," // append field data
+			input = bytes.Trim(input, "\x00") // trim nulls
+
+			// TODO : pick a more agnostic output format for this stage of the game
+			// 				and then flip to correct CSV handling after that.
+
+			if strings.Contains(string(input), ",") { // wraps it in quotes if comma already in text.
+				record = record + strconv.Quote(string(input)) + "," // append field data
+			} else {
+				record = record + string(input) + "," // append field data
+			}
 
 			fieldIndex++
 		}
@@ -256,6 +268,7 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File, outFileName string) (in
 		record = record[0 : len(record)-1] // trim the last communicate
 		record = record + "\n"             // Add a new line
 
+		log.Println(record)
 		err = writeDataToFile(record, outFileName)
 		check(err)
 
@@ -293,6 +306,8 @@ func main() {
 	inputFileNamePtf := flag.String("i", "", "The input file name for processing")
 	outputFileNamePtf := flag.String("o", "./output.csv", "The output file name to push the data to")
 
+	var currentOffset int64
+
 	flag.Parse()
 
 	log.Printf("Opening File : %s", *inputFileNamePtf)
@@ -302,21 +317,17 @@ func main() {
 
 	defer inFile.Close()
 
-	// Go get the database header
-	dbDatabaseHead, err := setupDatabaseHeader(inFile)
+	dbDatabaseHead, err := setupDatabaseHeader(inFile) // Go get the database header
 	check(err)
 
-	// Pull the Field Descriptions
-	fields = make(map[byte]fieldDescription)
+	fields = make(map[byte]fieldDescription) // Pull the Field Descriptions
 	err = pullFieldDescs(inFile, dbDatabaseHead)
 	check(err)
 
-	printDatabaseHeaderInfo(dbDatabaseHead)
+	// printDatabaseHeaderInfo(dbDatabaseHead)
 
 	err = sendFieldNamesToFile(fields, *outputFileNamePtf)
 	check(err)
-
-	var currentOffset int64
 
 	currentOffset = int64(dbDatabaseHead.headerBlockSize)
 	_, err = inFile.Seek(currentOffset, 0)

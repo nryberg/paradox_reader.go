@@ -6,9 +6,10 @@ This is a very simple tool used to convert legacy [Paradox](https://en.wikipedia
 
 Currently unloads the file data from a pdx file.  The project is still in heavy alpha stage - in no case should you be using this in production.
 
+It currently exports the raw data as a "output.csv" CSV file by default - next step is to deal with things like number fields.
+
 ## Tasks
 
-* Export the raw data as a CSV file by default
 * Turn this into an honest cli tool
 * Give the user the option to export the table layout in a relatively standard format making it easy to understand the underlying data.
 * Work with a real Golang programmer to get the syntax more idiomatic and clear up the many sins committed here.
