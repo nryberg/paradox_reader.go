@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"flag"
 	"io/ioutil"
@@ -215,11 +216,28 @@ func printBlockHeaderInfo(header blockHeader) {
 
 }
 
-func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
+func writeDataToFile(record string, outFileName string) error {
+	//TODO: Move to a more agnostic form of output.  This could be
+	// 			a CSV file (for now) or it could be STDOUT.  Or ??
+
+	outFile, err := os.OpenFile(outFileName, os.O_APPEND|os.O_WRONLY, 0600)
+
+	check(err)
+
+	defer outFile.Close()
+	if _, err = outFile.WriteString(record); err != nil {
+		panic(err)
+	}
+
+	return err
+}
+
+func fetchBlockRecords(maxOffset int64, inFile *os.File, outFileName string) (int64, error) {
 	var fieldIndex byte
 	var currentOffset int64
 	var err error
 	var recCount int64
+	var record string
 
 	recCount = 0
 
@@ -229,11 +247,19 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
 			input := make([]byte, field.length)
 			_, err = inFile.Read(input)
 			check(err)
-
-			// log.Printf("%d %s : %s", fieldIndex, field.name, input)
+			input = bytes.Trim(input, "\x00")     // trim nulls
+			record = record + string(input) + "," // append field data
 
 			fieldIndex++
 		}
+
+		record = record[0 : len(record)-1] // trim the last communicate
+		record = record + "\n"             // Add a new line
+
+		err = writeDataToFile(record, outFileName)
+		check(err)
+
+		record = ""
 		recCount++
 
 		fieldIndex = 0
@@ -246,7 +272,7 @@ func fetchBlockRecords(maxOffset int64, inFile *os.File) (int64, error) {
 
 }
 
-func sendFieldNamesToFile(fields map[byte]fieldDescription, outputFileNamePtf string) error {
+func sendFieldNamesToFile(fields map[byte]fieldDescription, outputFileName string) error {
 	var outString string
 	numFields := len(fields)
 
@@ -254,7 +280,10 @@ func sendFieldNamesToFile(fields map[byte]fieldDescription, outputFileNamePtf st
 		field := fields[byte(i)]
 		outString = outString + field.name + ","
 	}
-	err := ioutil.WriteFile(outputFileNamePtf, []byte(outString[0:len(outString)-1]), 0644)
+
+	outString = outString[0 : len(outString)-1]
+	outString = outString + "\n"
+	err := ioutil.WriteFile(outputFileName, []byte(outString), 0644)
 	check(err)
 
 	return err
@@ -309,7 +338,7 @@ func main() {
 
 	for {
 		maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
-		_, err = fetchBlockRecords(maxOffset, inFile)
+		_, err = fetchBlockRecords(maxOffset, inFile, *outputFileNamePtf)
 		check(err)
 
 		var totalBlockSize int64
@@ -326,7 +355,7 @@ func main() {
 
 		if blockHead.nextBlockNumber == 0 {
 			maxOffset := blockOffset + int64(blockHead.offsetLastRecord)
-			_, err = fetchBlockRecords(maxOffset, inFile)
+			_, err = fetchBlockRecords(maxOffset, inFile, *outputFileNamePtf)
 			check(err)
 
 			break
